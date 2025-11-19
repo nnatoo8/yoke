@@ -2,17 +2,10 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>よけゲー フルデザイン版</title>
+<title>よけゲー スマホ対応版</title>
 <style>
   body { margin:0; overflow:hidden; font-family:'Segoe UI', sans-serif; }
-  body { background:#0000; }
-
-  canvas {
-    display:block;
-    margin:0 auto;
-    background:#0000;
-  }
-
+  canvas { display:block; margin:0 auto; background:#0000; }
   #ui {
     position:absolute; top:10px; left:50%; transform:translateX(-50%);
     display:flex; gap:40px; font-size:22px;
@@ -20,14 +13,12 @@
     color:#ffffff;
     pointer-events:none;
   }
-
   #gameover {
     position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
     font-size:32px; display:none; text-align:center;
     color:white;
     text-shadow:0 0 15px rgba(255,255,255,0.7);
   }
-
   button {
     margin-top:12px; padding:10px 22px; font-size:20px;
     cursor:pointer; border:none; border-radius:8px;
@@ -67,8 +58,6 @@ bestText.textContent = "BEST: " + bestScore.toFixed(1);
 let player, enemies, startTime, gameOver;
 let enemyTimer = null;
 let enemyInterval = 700;
-
-/* ★ TIME を停止するための固定時間 */
 let finalTime = 0;
 
 function init() {
@@ -76,7 +65,7 @@ function init() {
   enemies = [];
   gameOver = false;
   startTime = Date.now();
-  finalTime = 0;       // リセット
+  finalTime = 0;
   enemyInterval = 700;
   gameOverUI.style.display = "none";
 
@@ -93,7 +82,6 @@ function hsvToRgb(h, s, v){
   return `rgb(${f(5)*255|0}, ${f(3)*255|0}, ${f(1)*255|0})`;
 }
 
-/* 敵の色を背景と近づかないように調整 */
 function chooseEnemyColor(bgHue){
   let enemyHue = (bgHue + 180 + (Math.random()*60 - 30)) % 360;
   return `hsl(${enemyHue}, 90%, 60%)`;
@@ -133,7 +121,25 @@ let keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
-/* プレイヤー描画（発光円） */
+/* スマホ用タッチ操作 */
+canvas.addEventListener("touchstart", e => {
+  e.preventDefault();
+  const touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+  if (touchX < canvas.width / 2) player.x -= player.speed;
+  else player.x += player.speed;
+
+  if(player.x < 20) player.x = 20;
+  if(player.x > 380) player.x = 380;
+});
+
+canvas.addEventListener("touchmove", e => {
+  e.preventDefault();
+  player.x = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+  if(player.x < 20) player.x = 20;
+  if(player.x > 380) player.x = 380;
+});
+
+/* プレイヤー描画 */
 function drawPlayer() {
   ctx.save();
   ctx.fillStyle = "#00faff";
@@ -145,24 +151,22 @@ function drawPlayer() {
   ctx.restore();
 }
 
-/* 敵の下向き三角（▼） */
+/* 敵の下向き三角 */
 function drawEnemy(e) {
   ctx.save();
   ctx.fillStyle = e.color;
   ctx.shadowColor = e.color;
   ctx.shadowBlur = 12;
-
   ctx.beginPath();
-  ctx.moveTo(e.x, e.y + e.size);         // ▼頂点
+  ctx.moveTo(e.x, e.y + e.size);
   ctx.lineTo(e.x - e.size, e.y - e.size);
   ctx.lineTo(e.x + e.size, e.y - e.size);
   ctx.closePath();
   ctx.fill();
-
   ctx.restore();
 }
 
-/* 衝突判定（円と円） */
+/* 衝突判定 */
 function hit(a, b) {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
@@ -176,15 +180,13 @@ function loop() {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  /* TIME 表示（ゲームオーバー後は固定値を表示） */
+  /* TIME */
   let time = (Date.now() - startTime) / 1000;
-
-  if (!gameOver) {
-    finalTime = time;  // ゲーム中だけ更新
-  }
+  if (!gameOver) finalTime = time;
   scoreText.textContent = "TIME: " + finalTime.toFixed(1);
 
   if (!gameOver) {
+    // キーボード操作
     if (keys["ArrowLeft"] && player.x > 20) player.x -= player.speed;
     if (keys["ArrowRight"] && player.x < 380) player.x += player.speed;
 
@@ -202,7 +204,7 @@ function loop() {
 
 function endGame(time) {
   gameOver = true;
-  finalTime = time;   // ← 死んだ瞬間の TIME を固定
+  finalTime = time;
 
   if (time > bestScore) {
     bestScore = time;
@@ -221,5 +223,3 @@ loop();
 </script>
 </body>
 </html>
-
-
