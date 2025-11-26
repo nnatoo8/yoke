@@ -2,157 +2,98 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>ジャンプゲーム（横スクロール）</title>
-
+<title>ジャンプゲーム 完全版</title>
 <style>
-body {
-  margin:0;
-  background:#222;
-  overflow:hidden;
-  touch-action:none;
-  font-family:sans-serif;
-}
-canvas {
-  display:block;
-  margin:0 auto;
-  background:#333;
-}
-#ui {
-  position:absolute;
-  top:10px;
-  left:50%;
-  transform:translateX(-50%);
-  color:white;
-  font-size:24px;
-  text-align:center;
-}
-#startWrap, #gameover {
-  position:absolute;
-  top:50%; left:50%;
-  transform:translate(-50%,-50%);
-  color:white;
-  text-align:center;
-}
-#startBtn, #retryBtn, #backBtn {
-  font-size:28px;
-  padding:16px 32px;
-  margin-top:15px;
-  background:#ffaa00;
-  color:white;
-  border:none;
-  border-radius:10px;
-  box-shadow:0 0 12px #ffaa00;
-}
-#backBtn {
-  position:absolute;
-  top:10px; left:10px;
-  background:#00aaff;
-  box-shadow:0 0 12px #00aaff;
-}
+body { margin:0; font-family:sans-serif; overflow:hidden; }
+canvas { display:block; width:100%; height:100vh; background:#87ceeb; }
+#ui { position:fixed; top:10px; left:50%; transform:translateX(-50%); color:white; font-size:24px; text-align:center; z-index:10; }
+#startWrap, #gameover { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); color:white; text-align:center; z-index:10; }
+#startBtn, #retryBtn, #backBtn { font-size:28px; padding:16px 32px; margin-top:15px; border:none; border-radius:10px; cursor:pointer; }
+#startBtn, #retryBtn { background:#ffaa00; color:white; box-shadow:0 0 12px #ffaa00; }
+#backBtn { background:#00aaff; color:white; box-shadow:0 0 12px #00aaff; position:fixed; top:10px; left:10px; z-index:10; }
+#startBtn:hover, #retryBtn:hover { background:#ffbb33; }
+#backBtn:hover { background:#33bbff; }
 </style>
 </head>
-
 <body>
 
-<button id="backBtn">戻る</button>
-
-<div id="ui">
-  TIME: <span id="timeDisplay">0.0</span> 秒
-</div>
-
-<div id="startWrap">
-  <button id="startBtn">ゲームスタート</button>
-</div>
-
+<div id="ui">TIME: <span id="timeDisplay">0.0</span> 秒</div>
+<div id="startWrap"><button id="startBtn">ゲームスタート</button></div>
 <div id="gameover" style="display:none;">
   <div id="result"></div>
   <button id="retryBtn">もう一回</button>
 </div>
+<button id="backBtn">戻る</button>
 
 <canvas id="game"></canvas>
 
 <script>
-/* ====== キャンバス ====== */
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-function resizeCanvas() {
+function resizeCanvas(){
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 }
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 
-/* ====== プレイヤー ====== */
-let player = {
-  x: 150,
-  y: 0,
-  vy: 0,
-  size: 60,
-  onGround: true
-};
+/* 背景スクロール用 */
+let clouds = [];
+for(let i=0;i<5;i++){
+  clouds.push({x:Math.random()*canvas.width, y:Math.random()*100, speed:0.3+Math.random()*0.3});
+}
 
+/* プレイヤー */
+let player = {x:150, y:0, vy:0, size:60, onGround:true};
 let groundY;
 let obstacles = [];
 let running = false;
 let startTime = 0;
 
-/* UI */
 const timeDisplay = document.getElementById("timeDisplay");
 
-/* ====== ゲーム開始 ====== */
-function startGame() {
-  document.getElementById("startWrap").style.display = "none";
-  document.getElementById("gameover").style.display = "none";
+/* スタート/リトライ */
+function startGame(){
+  document.getElementById("startWrap").style.display="none";
+  document.getElementById("gameover").style.display="none";
 
   running = true;
-
   groundY = canvas.height - 120;
   player.y = groundY - player.size/2;
   player.vy = 0;
   player.onGround = true;
-
   obstacles = [];
   startTime = Date.now();
 }
 
-/* 戻るボタン */
-document.getElementById("backBtn").onclick = () => {
-  window.location.href = "index.html";
-};
-
-/* リトライ */
+/* 戻る */
+document.getElementById("backBtn").onclick = ()=>{ window.location.href="index.html"; };
 document.getElementById("retryBtn").onclick = startGame;
 document.getElementById("startBtn").onclick = startGame;
 
-/* ====== 入力（ジャンプ） ====== */
-function jump() {
-  if (player.onGround) {
-    player.vy = -22;
-    player.onGround = false;
-  }
-}
-document.addEventListener("keydown", e => { if (e.code === "Space") jump(); });
+/* ジャンプ */
+function jump(){ if(player.onGround){ player.vy=-22; player.onGround=false; } }
+document.addEventListener("keydown", e=>{ if(e.code==="Space") jump(); });
 canvas.addEventListener("touchstart", jump);
 
-/* ====== 障害物生成 ====== */
-function spawnObstacle() {
-  let type = Math.floor(Math.random()*4); // 0〜3
-  let ob = {x: canvas.width + 200, w:60, h:60, type:type};
+/* 障害物生成 */
+function spawnObstacle(){
+  let type = Math.floor(Math.random()*4);
+  let ob = {x:canvas.width+100, w:60, h:60, type:type};
 
   if(type===0){ ob.w=60; ob.h=60; } // 通常
   else if(type===1){ ob.w=180; ob.h=60; } // 横長
   else if(type===2){ ob.w=70; ob.h=140; } // 縦長
-  else if(type===3){ ob.w=120; ob.h=30; ob.y=groundY - 100 - Math.random()*50; } // 空中障害物
+  else if(type===3){ ob.w=120; ob.h=30; ob.y=groundY-100-Math.random()*50; } // 空中
 
-  if(type!==3) ob.y = groundY - ob.h; // 下端をプレイヤーと同じ高さに
+  if(type!==3) ob.y = groundY - ob.h;
   obstacles.push(ob);
 }
+setInterval(()=>{ if(running) spawnObstacle(); },1200);
 
-setInterval(()=>{if(running) spawnObstacle();},1200);
-
-/* ====== 顔描画 ====== */
-function drawEvilFace(x, y, w, h){
+/* 障害物悪そうな顔 */
+function drawEvilFace(x,y,w,h){
   ctx.strokeStyle="black";
   ctx.lineWidth=4;
   ctx.beginPath();
@@ -167,50 +108,58 @@ function drawEvilFace(x, y, w, h){
   ctx.stroke();
 }
 
-/* ====== メインループ ====== */
+/* メインループ */
 function loop(){
   requestAnimationFrame(loop);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  ctx.fillStyle="#333";
+  /* 空背景 */
+  ctx.fillStyle="#87ceeb";
   ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  /* 雲スクロール */
+  clouds.forEach(c=>{
+    c.x -= c.speed;
+    if(c.x<-100) c.x=canvas.width+100;
+    ctx.fillStyle="white";
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 30,0,Math.PI*2);
+    ctx.arc(c.x+25, c.y+10,25,0,Math.PI*2);
+    ctx.arc(c.x-25, c.y+10,25,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  /* 地面 */
+  ctx.fillStyle="#654321";
+  ctx.fillRect(0,groundY,canvas.width,canvas.height-groundY);
 
   if(!running) return;
 
-  /* タイム表示 */
+  /* タイム更新 */
   let t = ((Date.now()-startTime)/1000).toFixed(1);
   timeDisplay.textContent = t;
 
-  /* 地面 */
-  ctx.fillStyle="#222";
-  ctx.fillRect(0, groundY + 50, canvas.width, canvas.height-groundY);
-
-  /* プレイヤー物理 */
+  /* プレイヤー */
   player.y += player.vy;
   player.vy += 1.0;
+  if(player.y >= groundY-player.size/2){ player.y=groundY-player.size/2; player.vy=0; player.onGround=true; }
 
-  if(player.y >= groundY - player.size/2){
-    player.y = groundY - player.size/2;
-    player.vy = 0;
-    player.onGround = true;
-  }
-
-  /* プレイヤー描画 */
   ctx.fillStyle="white";
-  ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
+  ctx.fillRect(player.x-player.size/2, player.y-player.size/2, player.size, player.size);
 
-  /* 障害物描画 & 判定 */
+  /* 障害物描画 */
   obstacles.forEach(ob=>{
     ob.x -= 9;
-
     ctx.fillStyle="#ff5555";
     ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
     drawEvilFace(ob.x, ob.y, ob.w, ob.h);
 
-    if(ob.type!==3 || player.y < groundY - player.size/2){
-      if(player.x + player.size/2 > ob.x &&
-         player.x - player.size/2 < ob.x + ob.w &&
-         player.y + player.size/2 > ob.y &&
-         player.y - player.size/2 < ob.y + ob.h){
+    /* 当たり判定 */
+    if(ob.type!==3 || player.y<groundY-player.size/2){
+      if(player.x+player.size/2>ob.x &&
+         player.x-player.size/2<ob.x+ob.w &&
+         player.y+player.size/2>ob.y &&
+         player.y-player.size/2<ob.y+ob.h){
         running=false;
         document.getElementById("result").textContent=
           "ゲームオーバー！\n生存時間: "+t+"秒";
@@ -221,7 +170,7 @@ function loop(){
 }
 
 loop();
-
 </script>
 </body>
 </html>
+
