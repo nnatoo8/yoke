@@ -271,14 +271,15 @@ function loop() {
   scoreText.textContent = "TIME: " + finalTime.toFixed(1);
 
   // ★10秒経過メッセージ
-  if (Math.floor(time / 10) > lastMilestone) {
-    lastMilestone = Math.floor(time / 10);
-    milestoneTexts.push({
-      text: `${lastMilestone * 10} 秒経過！`,
-      alpha: 1,
-      y: 200
-    });
-  }
+  if (!gameOver && Math.floor(time / 10) > lastMilestone) {
+  lastMilestone = Math.floor(time / 10);
+  milestoneTexts.push({
+    text: `${lastMilestone * 10} 秒経過！`,
+    alpha: 1,
+    y: 200
+  });
+}
+
 
   if (!gameOver) {
     if (keys["ArrowLeft"] && player.x > 20) player.x -= player.speed;
@@ -309,6 +310,7 @@ function loop() {
   }
 
   // ★10秒演出表示
+  if (!gameOver) {
   milestoneTexts.forEach((m) => {
     ctx.save();
     ctx.globalAlpha = m.alpha;
@@ -320,7 +322,9 @@ function loop() {
     m.alpha -= 0.01;
     m.y -= 0.3;
   });
+
   milestoneTexts = milestoneTexts.filter(m => m.alpha > 0);
+}
 
   requestAnimationFrame(loop);
 }
@@ -354,5 +358,3 @@ loop();
 </script>
 </body>
 </html>
-
-
