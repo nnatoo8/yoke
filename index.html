@@ -175,22 +175,49 @@ canvas.addEventListener("touchmove", e => {
 /* プレイヤー */
 function drawPlayer() {
   ctx.save();
-  ctx.fillStyle = "#00faff";
+  ctx.strokeStyle = "#00faff";
+  ctx.lineWidth = 4;
   ctx.shadowColor = "#00ddee";
-  ctx.shadowBlur = 15;
+  ctx.shadowBlur = 12;
+
+  let x = player.x;
+  let y = player.y;
+
+  // 頭
   ctx.beginPath();
-  ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.arc(x, y - 20, 10, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 体
+  ctx.beginPath();
+  ctx.moveTo(x, y - 10);
+  ctx.lineTo(x, y + 20);
+  ctx.stroke();
+
+  // 腕
+  ctx.beginPath();
+  ctx.moveTo(x - 15, y);
+  ctx.lineTo(x + 15, y);
+  ctx.stroke();
+
+  // 脚
+  ctx.beginPath();
+  ctx.moveTo(x, y + 20);
+  ctx.lineTo(x - 10, y + 40);
+  ctx.moveTo(x, y + 20);
+  ctx.lineTo(x + 10, y + 40);
+  ctx.stroke();
+
   ctx.restore();
 
   // ★バリア数表示
   ctx.save();
   ctx.fillStyle = "pink";
   ctx.font = "20px sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText("❤️" + barrierCount, player.x + 25, player.y - 10);
+  ctx.fillText("❤️" + barrierCount, x + 20, y - 30);
   ctx.restore();
 }
+
 
 /* 敵の下向き三角 */
 function drawEnemy(e) {
@@ -327,4 +354,5 @@ loop();
 </script>
 </body>
 </html>
+
 
