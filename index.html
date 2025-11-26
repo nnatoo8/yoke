@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>よけゲー スマホ対応版</title>
+<title>よけ</title>
 <style>
   body { margin:0; overflow:hidden; font-family:'Segoe UI', sans-serif; }
   canvas { display:block; margin:0 auto; background:#0000; }
@@ -33,11 +33,12 @@
 <div id="ui">
   <div id="score">TIME: 0.0</div>
   <div id="best">BEST: 0.0</div>
+  <div id="global">GLOBAL BEST: 0.0</div>
 </div>
 
 <div id="gameover">
   <div id="result"></div>
-  <button id="retry">コンテニュー</button>
+  <button id="retry">もっかい</button>
 </div>
 
 <canvas id="game" width="400" height="600"></canvas>
@@ -48,32 +49,51 @@ const ctx = canvas.getContext("2d");
 
 const scoreText = document.getElementById("score");
 const bestText = document.getElementById("best");
+const globalText = document.getElementById("global");
 const gameOverUI = document.getElementById("gameover");
 const resultText = document.getElementById("result");
 const retryBtn = document.getElementById("retry");
 
+/* ローカル記録 */
 let bestScore = parseFloat(localStorage.getItem("bestScore")) || 0;
-bestText.textContent = "BEST: " + bestScore.toFixed(1);
+let globalBest = parseFloat(localStorage.getItem("globalBest")) || 0;
 
+bestText.textContent = "BEST: " + bestScore.toFixed(1);
+globalText.textContent = "GLOBAL BEST: " + globalBest.toFixed(1);
+
+/* ゲーム変数 */
 let player, enemies, startTime, gameOver;
 let enemyTimer = null;
 let enemyInterval = 700;
 let finalTime = 0;
+let barrierCount = 0; // ★所持バリア数
 
+let milestoneTexts = []; // ★10秒経過表示
+let lastMilestone = 0;
+
+/* 初期化 */
 function init() {
   player = { x: 200, y: 550, size: 20, speed: 5 };
   enemies = [];
   gameOver = false;
   startTime = Date.now();
   finalTime = 0;
+  barrierCount = 0;
+  lastMilestone = 0;
   enemyInterval = 700;
   gameOverUI.style.display = "none";
+  milestoneTexts = [];
 
   if (enemyTimer) clearInterval(enemyTimer);
   enemyTimer = setInterval(spawnEnemy, enemyInterval);
+
+  // ★10〜15秒後にバリアを1回だけ落とす
+  setTimeout(() => {
+    if (!gameOver) spawnBarrier();
+  }, 10000 + Math.random() * 5000);
 }
 
-/* 背景色変化（HSV → RGB） */
+/* 背景色（HSV→RGB） */
 function hsvToRgb(h, s, v){
   let f = (n) => {
     let k = (n + h/60) % 6;
@@ -82,11 +102,12 @@ function hsvToRgb(h, s, v){
   return `rgb(${f(5)*255|0}, ${f(3)*255|0}, ${f(1)*255|0})`;
 }
 
-function chooseEnemyColor(bgHue){
-  let enemyHue = (bgHue + 180 + (Math.random()*60 - 30)) % 360;
+function chooseEnemyColor(hue){
+  let enemyHue = (hue + 180 + (Math.random()*60 - 30)) % 360;
   return `hsl(${enemyHue}, 90%, 60%)`;
 }
 
+/* 敵の生成速度調整 */
 function updateEnemySpawnRate() {
   let elapsed = (Date.now() - startTime) / 1000;
   let newInterval = Math.max(200, 700 - elapsed * 20);
@@ -97,12 +118,11 @@ function updateEnemySpawnRate() {
   }
 }
 
+/* 敵生成 */
 function spawnEnemy() {
   if (gameOver) return;
-
   let elapsed = (Date.now() - startTime) / 1000;
   let difficulty = 1 + elapsed * 0.05;
-
   let bgHue = ((Date.now() - startTime) / 40) % 360;
   let enemyColor = chooseEnemyColor(bgHue);
 
@@ -111,35 +131,48 @@ function spawnEnemy() {
     y: -30,
     size: 20,
     speed: (2 + Math.random() * 3) * difficulty,
-    color: enemyColor
+    color: enemyColor,
+    type: "enemy"
   });
 
   updateEnemySpawnRate();
 }
 
+/* ★バリア生成 */
+function spawnBarrier() {
+  enemies.push({
+    x: Math.random() * 380,
+    y: -30,
+    size: 18,
+    speed: 2,
+    type: "barrier"
+  });
+}
+
+/* キー操作 */
 let keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
-/* スマホ用タッチ操作 */
+/* スマホ操作 */
 canvas.addEventListener("touchstart", e => {
   e.preventDefault();
-  const touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
-  if (touchX < canvas.width / 2) player.x -= player.speed;
+  const x = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+  if (x < canvas.width / 2) player.x -= player.speed;
   else player.x += player.speed;
 
-  if(player.x < 20) player.x = 20;
-  if(player.x > 380) player.x = 380;
+  if (player.x < 20) player.x = 20;
+  if (player.x > 380) player.x = 380;
 });
 
 canvas.addEventListener("touchmove", e => {
   e.preventDefault();
   player.x = e.touches[0].clientX - canvas.getBoundingClientRect().left;
-  if(player.x < 20) player.x = 20;
-  if(player.x > 380) player.x = 380;
+  if (player.x < 20) player.x = 20;
+  if (player.x > 380) player.x = 380;
 });
 
-/* プレイヤー描画 */
+/* プレイヤー */
 function drawPlayer() {
   ctx.save();
   ctx.fillStyle = "#00faff";
@@ -148,6 +181,14 @@ function drawPlayer() {
   ctx.beginPath();
   ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
+
+  // ★バリア数表示
+  ctx.save();
+  ctx.fillStyle = "pink";
+  ctx.font = "20px sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("❤️" + barrierCount, player.x + 25, player.y - 10);
   ctx.restore();
 }
 
@@ -166,27 +207,53 @@ function drawEnemy(e) {
   ctx.restore();
 }
 
-/* 衝突判定 */
+/* ★ハートバリア */
+function drawBarrier(b) {
+  ctx.save();
+  ctx.fillStyle = "pink";
+  ctx.shadowColor = "pink";
+  ctx.shadowBlur = 12;
+
+  let x = b.x, y = b.y, s = b.size;
+
+  ctx.beginPath();
+  ctx.moveTo(x, y + s * 0.3);
+  ctx.bezierCurveTo(x - s, y - s*0.5, x - s, y + s*0.8, x, y + s);
+  ctx.bezierCurveTo(x + s, y + s*0.8, x + s, y - s*0.5, x, y + s*0.3);
+  ctx.fill();
+  ctx.restore();
+}
+
+/* 衝突判定（円） */
 function hit(a, b) {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
   return Math.sqrt(dx*dx + dy*dy) < a.size + b.size;
 }
 
+/* メインループ */
 function loop() {
-  /* 背景色 */
   let hue = (Date.now() / 40) % 360;
   let bg = hsvToRgb(hue, 0.6, 0.25);
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  /* TIME */
   let time = (Date.now() - startTime) / 1000;
+
   if (!gameOver) finalTime = time;
   scoreText.textContent = "TIME: " + finalTime.toFixed(1);
 
+  // ★10秒経過メッセージ
+  if (Math.floor(time / 10) > lastMilestone) {
+    lastMilestone = Math.floor(time / 10);
+    milestoneTexts.push({
+      text: `${lastMilestone * 10} 秒経過！`,
+      alpha: 1,
+      y: 200
+    });
+  }
+
   if (!gameOver) {
-    // キーボード操作
     if (keys["ArrowLeft"] && player.x > 20) player.x -= player.speed;
     if (keys["ArrowRight"] && player.x < 380) player.x += player.speed;
 
@@ -194,14 +261,44 @@ function loop() {
 
     enemies.forEach(e => {
       e.y += e.speed;
-      drawEnemy(e);
-      if (hit(player, e)) endGame(time);
+
+      if (e.type === "barrier") drawBarrier(e);
+      else drawEnemy(e);
+
+      if (hit(player, e)) {
+        if (e.type === "barrier") {
+          barrierCount++;
+          e.y = 9999;
+        } else {
+          if (barrierCount > 0) {
+            barrierCount--;
+            e.y = 9999;
+          } else {
+            endGame(time);
+          }
+        }
+      }
     });
   }
+
+  // ★10秒演出表示
+  milestoneTexts.forEach((m) => {
+    ctx.save();
+    ctx.globalAlpha = m.alpha;
+    ctx.fillStyle = "white";
+    ctx.font = "40px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(m.text, canvas.width / 2, m.y);
+    ctx.restore();
+    m.alpha -= 0.01;
+    m.y -= 0.3;
+  });
+  milestoneTexts = milestoneTexts.filter(m => m.alpha > 0);
 
   requestAnimationFrame(loop);
 }
 
+/* ゲーム終了 */
 function endGame(time) {
   gameOver = true;
   finalTime = time;
@@ -210,6 +307,13 @@ function endGame(time) {
     bestScore = time;
     localStorage.setItem("bestScore", bestScore);
     bestText.textContent = "BEST: " + bestScore.toFixed(1);
+  }
+
+  // ★グローバルベスト更新
+  if (time > globalBest) {
+    globalBest = time;
+    localStorage.setItem("globalBest", globalBest);
+    globalText.textContent = "GLOBAL BEST: " + globalBest.toFixed(1);
   }
 
   resultText.textContent = "ゲームオーバー！\n生存時間: " + time.toFixed(1) + " 秒";
