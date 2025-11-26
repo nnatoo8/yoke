@@ -7,12 +7,21 @@
   body { margin:0; overflow:hidden; font-family:'Segoe UI', sans-serif; }
   canvas { display:block; margin:0 auto; background:#0000; }
   #ui {
-    position:absolute; top:10px; left:50%; transform:translateX(-50%);
-    display:flex; gap:40px; font-size:22px;
-    text-shadow:0 0 10px rgba(255,255,255,0.8);
-    color:#ffffff;
-    pointer-events:none;
-  }
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;   /* ← NEW */
+  gap: 20px;
+  font-size: 20px;
+  text-shadow: 0 0 10px rgba(255,255,255,0.8);
+  color: #ffffff;
+  pointer-events:none;
+  width: 90%;       /* ← スマホ対応 */
+  justify-content: center; /* ← 中央揃え */
+}
+
   #gameover {
     position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
     font-size:32px; display:none; text-align:center;
@@ -172,51 +181,26 @@ canvas.addEventListener("touchmove", e => {
   if (player.x > 380) player.x = 380;
 });
 
+const playerImg = new Image();
+playerImg.src = "1000002537.png";   // ← この画像のファイル名にする
+
 /* プレイヤー */
 function drawPlayer() {
+  if (!playerImg.complete) return; // 画像読込前は描画しない
+
+  const w = 80;   // プレイヤーの幅
+  const h = 80;   // プレイヤーの高さ
+
   ctx.save();
-  ctx.strokeStyle = "#00faff";
-  ctx.lineWidth = 4;
-  ctx.shadowColor = "#00ddee";
-  ctx.shadowBlur = 12;
-
-  let x = player.x;
-  let y = player.y;
-
-  // 頭
-  ctx.beginPath();
-  ctx.arc(x, y - 20, 10, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // 体
-  ctx.beginPath();
-  ctx.moveTo(x, y - 10);
-  ctx.lineTo(x, y + 20);
-  ctx.stroke();
-
-  // 腕
-  ctx.beginPath();
-  ctx.moveTo(x - 15, y);
-  ctx.lineTo(x + 15, y);
-  ctx.stroke();
-
-  // 脚
-  ctx.beginPath();
-  ctx.moveTo(x, y + 20);
-  ctx.lineTo(x - 10, y + 40);
-  ctx.moveTo(x, y + 20);
-  ctx.lineTo(x + 10, y + 40);
-  ctx.stroke();
-
+  ctx.drawImage(playerImg, player.x - w / 2, player.y - h / 2, w, h);
   ctx.restore();
 
-  // ★バリア数表示
-  ctx.save();
+  // ❤️ バリア数
   ctx.fillStyle = "pink";
-  ctx.font = "20px sans-serif";
-  ctx.fillText("❤️" + barrierCount, x + 20, y - 30);
-  ctx.restore();
+  ctx.font = "22px sans-serif";
+  ctx.fillText("❤️" + barrierCount, player.x + 35, player.y - 45);
 }
+
 
 
 /* 敵の下向き三角 */
@@ -358,3 +342,4 @@ loop();
 </script>
 </body>
 </html>
+
