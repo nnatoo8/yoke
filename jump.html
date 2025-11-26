@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ジャンプゲーム（横スクロール）</title>
+
+<style>
+body {
+  margin:0;
+  background:#222;
+  overflow:hidden;
+  touch-action:none;
+  font-family:sans-serif;
+}
+canvas {
+  display:block;
+  margin:0 auto;
+  background:#333;
+}
+#ui {
+  position:absolute;
+  top:10px;
+  left:50%;
+  transform:translateX(-50%);
+  color:white;
+  font-size:24px;
+  text-align:center;
+}
+#startWrap, #gameover {
+  position:absolute;
+  top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  color:white;
+  text-align:center;
+}
+#startBtn, #retryBtn, #backBtn {
+  font-size:28px;
+  padding:16px 32px;
+  margin-top:15px;
+  background:#ffaa00;
+  color:white;
+  border:none;
+  border-radius:10px;
+  box-shadow:0 0 12px #ffaa00;
+}
+#backBtn {
+  position:absolute;
+  top:10px; left:10px;
+  background:#00aaff;
+  box-shadow:0 0 12px #00aaff;
+}
+</style>
+</head>
+
+<body>
+
+<button id="backBtn">戻る</button>
+
+<div id="ui">
+  TIME: <span id="timeDisplay">0.0</span> 秒
+</div>
+
+<div id="startWrap">
+  <button id="startBtn">ゲームスタート</button>
+</div>
+
+<div id="gameover" style="display:none;">
+  <div id="result"></div>
+  <button id="retryBtn">もう一回</button>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+/* ====== キャンバス ====== */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+/* ====== プレイヤー ====== */
+let player = {
+  x: 150,
+  y: 0,
+  vy: 0,
+  size: 60,
+  onGround: true
+};
+
+let groundY;
+let obstacles = [];
+let running = false;
+let startTime = 0;
+
+/* UI */
+const timeDisplay = document.getElementById("timeDisplay");
+
+/* ====== ゲーム開始 ====== */
+function startGame() {
+  document.getElementById("startWrap").style.display = "none";
+  document.getElementById("gameover").style.display = "none";
+
+  running = true;
+
+  groundY = canvas.height - 120;
+  player.y = groundY - player.size/2;
+  player.vy = 0;
+  player.onGround = true;
+
+  obstacles = [];
+  startTime = Date.now();
+}
+
+/* 戻るボタン */
+document.getElementById("backBtn").onclick = () => {
+  window.location.href = "index.html";
+};
+
+/* リトライ */
+document.getElementById("retryBtn").onclick = startGame;
+document.getElementById("startBtn").onclick = startGame;
+
+/* ====== 入力（ジャンプ） ====== */
+function jump() {
+  if (player.onGround) {
+    player.vy = -22;
+    player.onGround = false;
+  }
+}
+document.addEventListener("keydown", e => { if (e.code === "Space") jump(); });
+canvas.addEventListener("touchstart", jump);
+
+/* ====== 障害物生成 ====== */
+function spawnObstacle() {
+  let type = Math.floor(Math.random()*4); // 0〜3
+  let ob = {x: canvas.width + 200, w:60, h:60, type:type};
+
+  if(type===0){ ob.w=60; ob.h=60; } // 通常
+  else if(type===1){ ob.w=180; ob.h=60; } // 横長
+  else if(type===2){ ob.w=70; ob.h=140; } // 縦長
+  else if(type===3){ ob.w=120; ob.h=30; ob.y=groundY - 100 - Math.random()*50; } // 空中障害物
+
+  if(type!==3) ob.y = groundY - ob.h; // 下端をプレイヤーと同じ高さに
+  obstacles.push(ob);
+}
+
+setInterval(()=>{if(running) spawnObstacle();},1200);
+
+/* ====== 顔描画 ====== */
+function drawEvilFace(x, y, w, h){
+  ctx.strokeStyle="black";
+  ctx.lineWidth=4;
+  ctx.beginPath();
+  ctx.moveTo(x+w*0.25,y+h*0.3);
+  ctx.lineTo(x+w*0.35,y+h*0.2);
+  ctx.moveTo(x+w*0.75,y+h*0.3);
+  ctx.lineTo(x+w*0.65,y+h*0.2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x+w*0.3,y+h*0.7);
+  ctx.lineTo(x+w*0.7,y+h*0.6);
+  ctx.stroke();
+}
+
+/* ====== メインループ ====== */
+function loop(){
+  requestAnimationFrame(loop);
+
+  ctx.fillStyle="#333";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  if(!running) return;
+
+  /* タイム表示 */
+  let t = ((Date.now()-startTime)/1000).toFixed(1);
+  timeDisplay.textContent = t;
+
+  /* 地面 */
+  ctx.fillStyle="#222";
+  ctx.fillRect(0, groundY + 50, canvas.width, canvas.height-groundY);
+
+  /* プレイヤー物理 */
+  player.y += player.vy;
+  player.vy += 1.0;
+
+  if(player.y >= groundY - player.size/2){
+    player.y = groundY - player.size/2;
+    player.vy = 0;
+    player.onGround = true;
+  }
+
+  /* プレイヤー描画 */
+  ctx.fillStyle="white";
+  ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
+
+  /* 障害物描画 & 判定 */
+  obstacles.forEach(ob=>{
+    ob.x -= 9;
+
+    ctx.fillStyle="#ff5555";
+    ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+    drawEvilFace(ob.x, ob.y, ob.w, ob.h);
+
+    if(ob.type!==3 || player.y < groundY - player.size/2){
+      if(player.x + player.size/2 > ob.x &&
+         player.x - player.size/2 < ob.x + ob.w &&
+         player.y + player.size/2 > ob.y &&
+         player.y - player.size/2 < ob.y + ob.h){
+        running=false;
+        document.getElementById("result").textContent=
+          "ゲームオーバー！\n生存時間: "+t+"秒";
+        document.getElementById("gameover").style.display="block";
+      }
+    }
+  });
+}
+
+loop();
+
+</script>
+</body>
+</html>
