@@ -5,16 +5,8 @@
 <title>よけ</title>
 
 <style>
-  body { margin:0; font-family:sans-serif; overflow:hidden; }
-  canvas {
-    display:block;
-    background:#000000;
-    position:fixed;
-    top:0;
-    left:0;
-    width:100vw;
-    height:100vh;
-  }
+  body { margin:0; overflow:hidden; font-family:'Segoe UI', sans-serif; background:#000; }
+  canvas { display:block; margin:0 auto; background:#0000; }
 
   /* UI（TIME / BEST / GLOBAL BEST） */
   #ui {
@@ -74,7 +66,7 @@
 
 <body>
 
-<!-- UI -->
+<!-- UI（TIME / BEST / GLOBAL） -->
 <div id="ui">
   <div id="score">TIME: 0.0</div>
   <div id="best">BEST: 0.0</div>
@@ -89,60 +81,31 @@
 <!-- ゲームオーバーUI -->
 <div id="gameover">
   <div id="result"></div>
+
   <button id="retry">もっかい</button>
+
+  <!-- ★ ジャンプゲームへ ★ -->
   <button id="jumpBtn" style="
-    margin-top:15px; padding:10px 22px; font-size:20px;
-    background:#ff8800; border:none; color:white;
-    border-radius:8px; box-shadow:0 0 12px #ff8800;
+    margin-top:15px;
+    padding:10px 22px;
+    font-size:20px;
+    background:#ff8800;
+    border:none; color:white;
+    border-radius:8px;
+    box-shadow:0 0 12px #ff8800;
   ">ジャンプゲームへ</button>
 </div>
 
-<canvas id="game"></canvas>
+<canvas id="game" width="400" height="600"></canvas>
 
 
 <script>
-/* ======================================================
-    論理サイズ（ゲーム内部の固定サイズ）
-====================================================== */
-const LOGICAL_W = 400;
-const LOGICAL_H = 600;
-
+/* ===========================
+      変数・要素
+=========================== */
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-/* ウィンドウサイズに応じて canvas をスケール */
-function resizeCanvas() {
-  const dpr = window.devicePixelRatio || 1;
-
-  // CSSサイズ
-  canvas.style.width = "100vw";
-  canvas.style.height = "100vh";
-
-  // 内部の実際のピクセル数（=論理サイズ × スケール）
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
-
-  ctx.scale(dpr, dpr);
-}
-window.addEventListener("resize", resizeCanvas);
-resizeCanvas();
-
-/* 画面→論理座標変換 */
-function screenToLogical(x, y) {
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = LOGICAL_W / rect.width;
-  const scaleY = LOGICAL_H / rect.height;
-
-  return {
-    x: x * scaleX,
-    y: y * scaleY
-  };
-}
-
-/* ------------------------------------------------------
-    UI要素
------------------------------------------------------- */
 const scoreText = document.getElementById("score");
 const bestText = document.getElementById("best");
 const globalText = document.getElementById("global");
@@ -159,9 +122,7 @@ let globalBest = parseFloat(localStorage.getItem("globalBest")) || 0;
 bestText.textContent = "BEST: " + bestScore.toFixed(1);
 globalText.textContent = "GLOBAL BEST: " + globalBest.toFixed(1);
 
-/* ------------------------------------------------------
-    ゲーム変数
------------------------------------------------------- */
+/* ゲーム用変数 */
 let player, enemies, startTime, gameOver;
 let enemyTimer = null;
 let enemyInterval = 700;
@@ -175,9 +136,9 @@ let running = false;
 const playerImg = new Image();
 playerImg.src = "1000002537.png";
 
-/* ======================================================
-    初期化
-====================================================== */
+/* ===========================
+      初期化
+=========================== */
 function init() {
   enemies = [];
   barrierCount = 0;
@@ -185,12 +146,7 @@ function init() {
   lastMilestone = 0;
   milestoneTexts = [];
 
-  player = {
-    x: LOGICAL_W / 2,
-    y: LOGICAL_H - 50,
-    size: 20,
-    speed: 5
-  };
+  player = { x: 200, y: 550, size: 20, speed: 5 };
 
   startTime = Date.now();
   finalTime = 0;
@@ -199,32 +155,33 @@ function init() {
   if (enemyTimer) clearInterval(enemyTimer);
   enemyTimer = setInterval(spawnEnemy, enemyInterval);
 
+  /* バリアを10〜15秒間隔で無限生成 */
   setInterval(() => {
     if (!gameOver) spawnBarrier();
   }, 10000 + Math.random() * 5000);
 }
 
-/* ------------------------------------------------------
-    背景色 (HSV)
------------------------------------------------------- */
-function hsvToRgb(h, s, v) {
+/* ===========================
+      HSV背景
+=========================== */
+function hsvToRgb(h, s, v){
   let f = (n) => {
-    let k = (n + h / 60) % 6;
-    return v - v * s * Math.max(Math.min(k, 4 - k, 1), 0);
+    let k = (n + h/60) % 6;
+    return v - v*s*Math.max(Math.min(k,4-k,1),0);
   };
-  return `rgb(${f(5) * 255 | 0}, ${f(3) * 255 | 0}, ${f(1) * 255 | 0})`;
+  return `rgb(${f(5)*255|0}, ${f(3)*255|0}, ${f(1)*255|0})`;
 }
 
-function chooseEnemyColor(hue) {
-  let enemyHue = (hue + 180 + (Math.random() * 60 - 30)) % 360;
+/* 敵の色 */
+function chooseEnemyColor(hue){
+  let enemyHue = (hue + 180 + (Math.random()*60 - 30)) % 360;
   return `hsl(${enemyHue}, 90%, 60%)`;
 }
 
-/* 敵の出現頻度更新 */
+/* 敵速度変化 */
 function updateEnemySpawnRate() {
   let elapsed = (Date.now() - startTime) / 1000;
   let newInterval = Math.max(200, 700 - elapsed * 20);
-
   if (newInterval !== enemyInterval) {
     enemyInterval = newInterval;
     clearInterval(enemyTimer);
@@ -232,31 +189,31 @@ function updateEnemySpawnRate() {
   }
 }
 
-/* ------------------------------------------------------
-    敵・バリア生成
------------------------------------------------------- */
+/* 敵生成 */
 function spawnEnemy() {
   if (gameOver) return;
 
   let elapsed = (Date.now() - startTime) / 1000;
   let difficulty = 1 + elapsed * 0.05;
   let bgHue = ((Date.now() - startTime) / 40) % 360;
+  let enemyColor = chooseEnemyColor(bgHue);
 
   enemies.push({
-    x: Math.random() * (LOGICAL_W - 20),
+    x: Math.random() * 380,
     y: -30,
     size: 20,
     speed: (2 + Math.random() * 3) * difficulty,
-    color: chooseEnemyColor(bgHue),
+    color: enemyColor,
     type: "enemy"
   });
 
   updateEnemySpawnRate();
 }
 
+/* バリア生成 */
 function spawnBarrier() {
   enemies.push({
-    x: Math.random() * (LOGICAL_W - 20),
+    x: Math.random() * 380,
     y: -30,
     size: 18,
     speed: 2,
@@ -264,56 +221,50 @@ function spawnBarrier() {
   });
 }
 
-/* ------------------------------------------------------
-    入力
------------------------------------------------------- */
+/* 入力 */
 let keys = {};
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
-/* スマホ移動（スケール対応） */
+/* スマホ移動 */
 canvas.addEventListener("touchmove", e => {
   e.preventDefault();
-  const pos = screenToLogical(
-    e.touches[0].clientX - canvas.getBoundingClientRect().left,
-    e.touches[0].clientY - canvas.getBoundingClientRect().top
-  );
-  player.x = pos.x;
+  player.x = e.touches[0].clientX - canvas.getBoundingClientRect().left;
   if (player.x < 20) player.x = 20;
-  if (player.x > LOGICAL_W - 20) player.x = LOGICAL_W - 20;
+  if (player.x > 380) player.x = 380;
 });
 
-/* ------------------------------------------------------
-    描画
------------------------------------------------------- */
+/* プレイヤー描画 */
 function drawPlayer() {
   if (!playerImg.complete) return;
 
   const w = 80;
   const h = 80;
-  ctx.drawImage(playerImg, player.x - w / 2, player.y - h / 2, w, h);
 
+  ctx.drawImage(playerImg, player.x - w/2, player.y - h/2, w, h);
+
+  /* バリア表示 */
   ctx.fillStyle = "pink";
   ctx.font = "22px sans-serif";
   ctx.fillText("❤️" + barrierCount, player.x + 35, player.y - 45);
 }
 
+/* 敵描画 */
 function drawEnemy(e) {
   ctx.save();
   ctx.fillStyle = e.color;
   ctx.shadowColor = e.color;
   ctx.shadowBlur = 12;
-
   ctx.beginPath();
   ctx.moveTo(e.x, e.y + e.size);
   ctx.lineTo(e.x - e.size, e.y - e.size);
   ctx.lineTo(e.x + e.size, e.y - e.size);
   ctx.closePath();
   ctx.fill();
-
   ctx.restore();
 }
 
+/* バリア描画 */
 function drawBarrier(b) {
   ctx.save();
   ctx.fillStyle = "pink";
@@ -321,35 +272,38 @@ function drawBarrier(b) {
   ctx.shadowBlur = 12;
 
   let x = b.x, y = b.y, s = b.size;
+
   ctx.beginPath();
   ctx.moveTo(x, y + s * 0.3);
-  ctx.bezierCurveTo(x - s, y - s * 0.5, x - s, y + s * 0.8, x, y + s);
-  ctx.bezierCurveTo(x + s, y + s * 0.8, x + s, y - s * 0.5, x, y + s * 0.3);
+  ctx.bezierCurveTo(x - s, y - s*0.5, x - s, y + s*0.8, x, y + s);
+  ctx.bezierCurveTo(x + s, y + s*0.8, x + s, y - s*0.5, x, y + s*0.3);
   ctx.fill();
-
   ctx.restore();
 }
 
+/* 衝突判定 */
 function hit(a, b) {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
-  return Math.sqrt(dx * dx + dy * dy) < a.size + b.size;
+  return Math.sqrt(dx*dx + dy*dy) < a.size + b.size;
 }
 
-/* ======================================================
-    メインループ
-====================================================== */
+/* ===========================
+        メインループ
+=========================== */
 function loop() {
   requestAnimationFrame(loop);
 
   if (!running) return;
 
   let hue = (Date.now() / 40) % 360;
-  ctx.fillStyle = hsvToRgb(hue, 0.6, 0.25);
-  ctx.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
+  let bg = hsvToRgb(hue, 0.6, 0.25);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   let time = (Date.now() - startTime) / 1000;
   if (!gameOver) finalTime = time;
+
   scoreText.textContent = "TIME: " + finalTime.toFixed(1);
 
   /* 10秒ごとメッセージ */
@@ -363,8 +317,8 @@ function loop() {
   }
 
   if (!gameOver) {
-    if (keys["ArrowLeft"] && player.x > 20) player.x -= player.speed;
-    if (keys["ArrowRight"] && player.x < LOGICAL_W - 20) player.x += player.speed;
+    if (keys["ArrowLeft"]  && player.x > 20) player.x -= player.speed;
+    if (keys["ArrowRight"] && player.x < 380) player.x += player.speed;
 
     drawPlayer();
 
@@ -390,14 +344,14 @@ function loop() {
     });
   }
 
-  /* メッセージ演出 */
+  /* 10秒演出 */
   milestoneTexts.forEach(m => {
     ctx.save();
     ctx.globalAlpha = m.alpha;
     ctx.fillStyle = "white";
     ctx.font = "40px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(m.text, LOGICAL_W / 2, m.y);
+    ctx.fillText(m.text, canvas.width / 2, m.y);
     ctx.restore();
 
     m.alpha -= 0.01;
@@ -407,9 +361,9 @@ function loop() {
   milestoneTexts = milestoneTexts.filter(m => m.alpha > 0);
 }
 
-/* ======================================================
-    ゲームオーバー
-====================================================== */
+/* ===========================
+      ゲームオーバー
+=========================== */
 function endGame(time) {
   gameOver = true;
 
@@ -429,18 +383,18 @@ function endGame(time) {
   gameOverUI.style.display = "block";
 }
 
-/* ======================================================
-    ボタンイベント
-====================================================== */
+/* リトライ */
 retryBtn.addEventListener("click", () => {
   gameOverUI.style.display = "none";
   init();
 });
 
+/* ジャンプゲームへ */
 document.getElementById("jumpBtn").addEventListener("click", () => {
   window.location.href = "jump.html";
 });
 
+/* ゲームスタート */
 startBtn.addEventListener("click", () => {
   startWrap.style.display = "none";
   running = true;
